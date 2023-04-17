@@ -1,0 +1,6 @@
+[package]
+name = "rescue_prime"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kaneki Ken <starkkaneki@protonmail.com>"]
+license = "MIT"

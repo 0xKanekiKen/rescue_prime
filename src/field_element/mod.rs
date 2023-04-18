@@ -42,6 +42,21 @@ impl FieldElement {
     pub fn value(&self) -> u64 {
         self.value
     }
+
+    /// Return the inverse of the FieldElement. According to the Fermat Little
+    /// Theorem, the inverse of a number is the number raised to the power of
+    /// PRIME - 2.
+    ///
+    /// Mathematically, this is equivalent to:
+    ///             $a^(p-1)     = 1 (mod p)$
+    ///             $a^(p-2) * a = 1 (mod p)$
+    /// Therefore   $a^(p-2)     = a^{-1} (mod p)$
+    ///
+    /// This is a very fast way to calculate the inverse of a number and happens
+    /// to in constant time.
+    pub fn inv(&self) -> Self {
+        unimplemented!("FieldElement::inv")
+    }
 }
 
 /// Implement the Display trait for FieldElement.
@@ -66,7 +81,13 @@ impl Add for FieldElement {
 
     #[inline]
     fn add(self, other: FieldElement) -> Self {
+        // Add the values and check for overflow. If there is overflow, then
+        // subtract PRIME from the result.
         let (result, carry) = self.value().overflowing_add(other.value());
+
+        // the summation of two field elements is always less than 2*PRIME therefore
+        // the carry is always 0 or 1. If the carry is 1, then the result is greater
+        // than PRIME and we need to subtract PRIME from the result.
         Self::new(result.wrapping_sub(PRIME * (carry as u64)))
     }
 }
@@ -83,7 +104,12 @@ impl Sub for FieldElement {
 
     #[inline]
     fn sub(self, other: FieldElement) -> FieldElement {
+        // Subtract the values and check for overflow. If there is underflow, then
+        // add PRIME to the result.
         let (result, carry) = self.value().overflowing_sub(other.value());
+
+        // If the carry is 1, then the result is less than 0 and we need to add
+        // PRIME to the result.
         Self::new(result.wrapping_add(PRIME * (carry as u64)))
     }
 }
@@ -101,6 +127,9 @@ impl Neg for FieldElement {
     #[inline]
     fn neg(self) -> FieldElement {
         let value = self.value();
+
+        // If the value is 0, then the negation is 0. Otherwise, the negation is
+        // PRIME - value.
         if value == 0 {
             Self { value }
         } else {

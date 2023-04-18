@@ -4,3 +4,14 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Kaneki Ken <starkkaneki@protonmail.com>"]
 license = "MIT"
+
+[profile.optimized]
+inherits = "release"
+codegen-units = 1
+lto = true
+
+[profile.test-release]
+inherits = "release"
+debug = true
+debug-assertions = true
+overflow-checks = true

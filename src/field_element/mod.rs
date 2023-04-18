@@ -1,13 +1,19 @@
-// CONSTANTS
-// =============================================================================
-
 use std::{
     fmt::{Display, Formatter, Result},
     ops::{Add, AddAssign, Neg, Sub, SubAssign},
 };
 
+#[cfg(test)]
+mod tests;
+
+// CONSTANTS
+// =============================================================================
+
 /// Prime number that defines the field the FieldElement is in. It is 2^64 - 2^32 + 1.
 const PRIME: u64 = 0xFFFFFFFF00000001;
+
+const ZERO: FieldElement = FieldElement { value: 0 };
+const ONE: FieldElement = FieldElement { value: 1 };
 
 // STRUCTS
 // =============================================================================
@@ -24,10 +30,6 @@ struct FieldElement {
 /// =============================================================================
 
 impl FieldElement {
-    // CONSTANTS
-    const ZERO: FieldElement = FieldElement { value: 0 };
-    const ONE: FieldElement = FieldElement { value: 1 };
-
     /// Create a new FieldElement. If the value is >= PRIME, then the value is
     /// reduced modulo PRIME.
     pub fn new(value: u64) -> FieldElement {
@@ -63,11 +65,9 @@ impl Add for FieldElement {
     type Output = Self;
 
     #[inline]
-    fn add(self, other: FieldElement) -> FieldElement {
+    fn add(self, other: FieldElement) -> Self {
         let (result, carry) = self.value().overflowing_add(other.value());
-        Self {
-            value: result.wrapping_sub(PRIME * (carry as u64)),
-        }
+        Self::new(result.wrapping_sub(PRIME * (carry as u64)))
     }
 }
 
@@ -84,9 +84,7 @@ impl Sub for FieldElement {
     #[inline]
     fn sub(self, other: FieldElement) -> FieldElement {
         let (result, carry) = self.value().overflowing_sub(other.value());
-        Self {
-            value: result.wrapping_add(PRIME * (carry as u64)),
-        }
+        Self::new(result.wrapping_add(PRIME * (carry as u64)))
     }
 }
 

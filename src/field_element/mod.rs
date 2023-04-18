@@ -1,6 +1,6 @@
 use std::{
     fmt::{Display, Formatter, Result},
-    ops::{Add, AddAssign, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
 #[cfg(test)]
@@ -11,6 +11,9 @@ mod tests;
 
 /// Prime number that defines the field the FieldElement is in. It is 2^64 - 2^32 + 1.
 const PRIME: u64 = 0xFFFFFFFF00000001;
+
+/// 2^64 minus the field PRIME (coincidentally, 2^32 - 1).
+const E: u64 = 0xFFFFFFFF;
 
 const ZERO: FieldElement = FieldElement { value: 0 };
 const ONE: FieldElement = FieldElement { value: 1 };
@@ -57,6 +60,16 @@ impl FieldElement {
     pub fn inv(&self) -> Self {
         unimplemented!("FieldElement::inv")
     }
+
+    /// Returns the square of the FieldElement which is equivalent to multiplying the FieldElement by itself.
+    pub fn square(&self) -> Self {
+        self.mul(*self)
+    }
+
+    /// Returns the cube of the FieldElement which is equivalent to multiplying the FieldElement by itself twice.
+    pub fn cube(&self) -> Self {
+        self.square().mul(*self)
+    }
 }
 
 /// Implement the Display trait for FieldElement.
@@ -74,8 +87,8 @@ impl PartialEq for FieldElement {
     }
 }
 
-/// Implement Add, AddAssign, Sub, SubAssign, and Neg for FieldElement. These
-/// operations are performed modulo PRIME.
+/// Implement Add, AddAssign, Neg, Mul, MulAssign, Sub, SubAssign for FieldElement.
+/// These operations are performed modulo PRIME.
 impl Add for FieldElement {
     type Output = Self;
 
@@ -96,6 +109,41 @@ impl AddAssign for FieldElement {
     #[inline]
     fn add_assign(&mut self, other: FieldElement) {
         *self = *self + other;
+    }
+}
+
+impl Mul for FieldElement {
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, other: FieldElement) -> FieldElement {
+        Self::new(reduce((self.value as u128) * (other.value as u128)))
+    }
+}
+
+impl MulAssign for FieldElement {
+    #[inline]
+    fn mul_assign(&mut self, other: FieldElement) {
+        *self = *self * other;
+    }
+}
+
+impl Neg for FieldElement {
+    type Output = Self;
+
+    #[inline]
+    fn neg(self) -> FieldElement {
+        let value = self.value();
+
+        // If the value is 0, then the negation is 0. Otherwise, the negation is
+        // PRIME - value.
+        if value == 0 {
+            Self { value }
+        } else {
+            Self {
+                value: PRIME - value,
+            }
+        }
     }
 }
 
@@ -121,21 +169,70 @@ impl SubAssign for FieldElement {
     }
 }
 
-impl Neg for FieldElement {
-    type Output = Self;
+// TYPE CONVERSIONS
+// =============================================================================
 
-    #[inline]
-    fn neg(self) -> FieldElement {
-        let value = self.value();
-
-        // If the value is 0, then the negation is 0. Otherwise, the negation is
-        // PRIME - value.
-        if value == 0 {
-            Self { value }
-        } else {
-            Self {
-                value: PRIME - value,
-            }
-        }
+impl From<u64> for FieldElement {
+    fn from(x: u64) -> Self {
+        Self::new(x)
     }
+}
+
+impl From<u32> for FieldElement {
+    fn from(x: u32) -> Self {
+        Self::new(x as u64)
+    }
+}
+
+impl From<u16> for FieldElement {
+    fn from(x: u16) -> Self {
+        Self::new(x as u64)
+    }
+}
+
+impl From<u8> for FieldElement {
+    fn from(x: u8) -> Self {
+        Self::new(x as u64)
+    }
+}
+
+// FUNCTIONS
+// =============================================================================
+
+/// This function reduces a 128-bit number modulo PRIME, based on the instructions at the link below.
+/// https://cp4space.hatsya.com/2021/09/01/an-efficient-prime-for-number-theoretic-transforms/
+#[inline]
+fn reduce(x: u128) -> u64 {
+    // Split the 128-bit number into 3 parts
+    // low 64 bits
+    let low: u64 = x as u64;
+    // middle 32 bits
+    let middle_high: u64 = (x >> 64) as u64;
+    let middle: u64 = (middle_high as u32) as u64;
+    // high 32 bits
+    let high: u64 = middle_high >> 32;
+    // The number can therefore be written as:
+    // x = low + 2^64 * middle + 2^96 * high
+    // In the finite field with modulus PRIME, we know that:
+    // p = 2^64 - 2^32 + 1
+    // 2^64 = p + 2^32 - 1
+    // 2^96 = 2^32 * (p + 2^32 - 1)
+    // 2^96 = 2^32 * p + 2^64 - 2^32
+    // 2^96 = 2^32 * p - 1 + p or 2^96 ≡ -1 (mod p)
+    // Replace 2^96 with this value in the equation for x:
+    // x ≡ low + 2^64 * middle - high
+    let (low2, under) = low.overflowing_sub(high);
+    // If an underflow occurred, then we need to add PRIME to the result
+    let low2 = low2.wrapping_add((under as u64) * PRIME);
+
+    // Using a similar analysis as above, we can show that:
+    // 2^64 = p + 2^32 - 1 or 2^64 ≡ 2^32 - 1
+    // which we can replace in the equation for x:
+    // x ≡ low + (2^32 - 1) * middle - high
+    let product = (middle << 32) - middle;
+
+    // Add low - high and middle product
+    let (result, over) = low2.overflowing_add(product);
+    // If an overflow occurred, then we need to subtract PRIME from the result
+    result.wrapping_sub((over as u64) * PRIME)
 }

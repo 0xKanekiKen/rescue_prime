@@ -54,3 +54,34 @@ fn test_negation() {
     assert_eq!(result.value, PRIME - 15);
     assert_eq!(a + result, ZERO);
 }
+
+#[test]
+fn test_mul() {
+    // test multiplication by zero and one
+    let r: FieldElement = FieldElement::new(5);
+    assert_eq!(ZERO, r * ZERO);
+    assert_eq!(r, r * ONE);
+
+    // test basic multiplication
+    assert_eq!(FieldElement::from(15u8), FieldElement::from(5u8) * FieldElement::from(3u8));
+
+    // test multiplication which is guaranted to overflow
+    let m = PRIME;
+    let t = FieldElement::from(m - 1);
+    assert_eq!(ONE, t * t);
+    assert_eq!(FieldElement::from(m - 2), t * FieldElement::from(2u8));
+    assert_eq!(FieldElement::from(m - 4), t * FieldElement::from(4u8));
+
+    let t = (m + 1) / 2;
+    assert_eq!(ONE, FieldElement::from(t) * FieldElement::from(2u8));
+}
+
+fn test_square() {
+    let r: FieldElement = FieldElement::new(5);
+    assert_eq!(FieldElement::from(25u8), r.square());
+}
+
+fn test_cube() {
+    let r: FieldElement = FieldElement::new(5);
+    assert_eq!(FieldElement::from(125u8), r.cube());
+}

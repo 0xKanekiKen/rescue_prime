@@ -12,9 +12,6 @@ mod tests;
 /// Prime number that defines the field the FieldElement is in. It is 2^64 - 2^32 + 1.
 const PRIME: u64 = 0xFFFFFFFF00000001;
 
-/// 2^64 minus the field PRIME (coincidentally, 2^32 - 1).
-const E: u64 = 0xFFFFFFFF;
-
 const ZERO: FieldElement = FieldElement { value: 0 };
 const ONE: FieldElement = FieldElement { value: 1 };
 

@@ -44,10 +44,35 @@ impl FieldElement {
         self.value
     }
 
+    /// Return the summation of the field element with itself.
     #[inline]
     pub fn double(&self) -> Self {
         let (res, carry) = self.value.overflowing_add(self.value);
         Self::new(res.wrapping_sub(PRIME * (carry as u64)))
+    }
+
+    #[inline]
+    /// Return the exponentiation of the field element with `pow` field element.
+    pub fn exp(self, pow: Self) -> Self {
+        let mut base = self;
+
+        if pow == ZERO {
+            return ONE;
+        } else if base == ZERO {
+            return ZERO;
+        }
+
+        let mut res = if (pow.value & 1) == 1 { base } else { ONE };
+        let mut pow_val = pow.value >> 1;
+        while pow_val > 0 {
+            base = base.square();
+            if (pow_val & 1) == 1 {
+                res *= base;
+            }
+            pow_val >>= 1;
+        }
+
+        res
     }
 
     /// Return the inverse of the FieldElement. According to the Fermat Little

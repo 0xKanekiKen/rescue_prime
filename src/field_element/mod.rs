@@ -200,36 +200,37 @@ impl From<u8> for FieldElement {
 /// https://cp4space.hatsya.com/2021/09/01/an-efficient-prime-for-number-theoretic-transforms/
 #[inline]
 fn reduce(x: u128) -> u64 {
-    // Split the 128-bit number into 3 parts
-    // low 64 bits
-    let low: u64 = x as u64;
-    // middle 32 bits
-    let middle_high: u64 = (x >> 64) as u64;
-    let middle: u64 = (middle_high as u32) as u64;
-    // high 32 bits
-    let high: u64 = middle_high >> 32;
-    // The number can therefore be written as:
+    // Split the 128-bit number into 3 parts, such that the number can be written as follows.
     // x = low + 2^64 * middle + 2^96 * high
+    let low: u64 = x as u64; // low 64 bits
+    let middle_high: u64 = (x >> 64) as u64; // remaining 64 bits
+    let middle: u64 = (middle_high as u32) as u64; // of which, low 32 bits
+    let high: u64 = middle_high >> 32; // of which, high 32 bits
+
     // In the finite field with modulus PRIME, we know that:
-    // p = 2^64 - 2^32 + 1
+    // p = 2^64 - 2^32 + 1, or
     // 2^64 = p + 2^32 - 1
+    // Multiplying both sides by 2^32, we get:
     // 2^96 = 2^32 * (p + 2^32 - 1)
-    // 2^96 = 2^32 * p + 2^64 - 2^32
-    // 2^96 = 2^32 * p - 1 + p or 2^96 ≡ -1 (mod p)
-    // Replace 2^96 with this value in the equation for x:
+    // 2^96 = 2^32 * p + (2^64 - 2^32), or
+    // 2^96 = 2^32 * p + (p - 1), or
+    // 2^96 ≡ -1 (mod p)
+    // Replace 2^96 with this value in the equation for x.
     // x ≡ low + 2^64 * middle - high
-    let (low2, under) = low.overflowing_sub(high);
-    // If an underflow occurred, then we need to add PRIME to the result
-    let low2 = low2.wrapping_add((under as u64) * PRIME);
+    // x ≡ low - high + 2^64 * middle
+    let (diff, under) = low.overflowing_sub(high);
+    // If an underflow occurred, then we need to add PRIME to the result.
+    let diff = diff.wrapping_add((under as u64) * PRIME);
 
     // Using a similar analysis as above, we can show that:
-    // 2^64 = p + 2^32 - 1 or 2^64 ≡ 2^32 - 1
-    // which we can replace in the equation for x:
-    // x ≡ low + (2^32 - 1) * middle - high
+    // 2^64 = p + 2^32 - 1, or that 2^64 ≡ 2^32 - 1
+    // Replace 2^64 with this value in the equation for x.
+    // x ≡ low - high + (2^32 - 1) * middle
     let product = (middle << 32) - middle;
 
-    // Add low - high and middle product
-    let (result, over) = low2.overflowing_add(product);
-    // If an overflow occurred, then we need to subtract PRIME from the result
+    // Add the product to low - high.
+    let (result, over) = diff.overflowing_add(product);
+
+    // If an overflow occurred, then we need to subtract PRIME from the result.
     result.wrapping_sub((over as u64) * PRIME)
 }

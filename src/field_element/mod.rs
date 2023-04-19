@@ -1,6 +1,6 @@
 use std::{
     fmt::{Display, Formatter, Result},
-    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
 #[cfg(test)]
@@ -32,15 +32,22 @@ struct FieldElement {
 impl FieldElement {
     /// Create a new FieldElement. If the value is >= PRIME, then the value is
     /// reduced modulo PRIME.
-    pub fn new(value: u64) -> FieldElement {
+    pub const fn new(value: u64) -> FieldElement {
         FieldElement {
             value: value % PRIME,
         }
     }
 
     /// Return the value of the FieldElement.
+    #[inline]
     pub fn value(&self) -> u64 {
         self.value
+    }
+
+    #[inline]
+    pub fn double(&self) -> Self {
+        let (res, carry) = self.value.overflowing_add(self.value);
+        Self::new(res.wrapping_sub(PRIME * (carry as u64)))
     }
 
     /// Return the inverse of the FieldElement. According to the Fermat Little
@@ -52,10 +59,37 @@ impl FieldElement {
     ///             $a^(p-2) * a = 1 (mod p)$
     /// Therefore   $a^(p-2)     = a^{-1} (mod p)$
     ///
-    /// This is a very fast way to calculate the inverse of a number and happens
-    /// to in constant time.
-    pub fn inv(&self) -> Self {
-        unimplemented!("FieldElement::inv")
+    /// This is a very fast way to calculate the inverse of a number and happens in constant time.
+    ///
+    /// Adapted from: https://github.com/facebook/winterfell/blob/main/math/src/field/f64/mod.rs
+    pub fn inv(self) -> Self {
+        // compute base^(M - 2) using 72 multiplications
+        // M - 2 = 0b1111111111111111111111111111111011111111111111111111111111111111
+
+        // compute base^11
+        let t2 = self.square() * (self);
+
+        // compute base^111
+        let t3 = t2.square() * self;
+
+        // compute base^111111 (6 ones)
+        let t6 = exp_acc::<3>(t3, t3);
+
+        // compute base^111111111111 (12 ones)
+        let t12 = exp_acc::<6>(t6, t6);
+
+        // compute base^111111111111111111111111 (24 ones)
+        let t24 = exp_acc::<12>(t12, t12);
+
+        // compute base^1111111111111111111111111111111 (31 ones)
+        let t30 = exp_acc::<6>(t24, t6);
+        let t31 = t30.square() * self;
+
+        // compute base^111111111111111111111111111111101111111111111111111111111111111
+        let t63 = exp_acc::<32>(t31, t31);
+
+        // compute base^1111111111111111111111111111111011111111111111111111111111111111
+        t63.square() * self
     }
 
     /// Returns the square of the FieldElement which is equivalent to multiplying the FieldElement by itself.
@@ -84,8 +118,8 @@ impl PartialEq for FieldElement {
     }
 }
 
-/// Implement Add, AddAssign, Neg, Mul, MulAssign, Sub, SubAssign for FieldElement.
-/// These operations are performed modulo PRIME.
+/// Implement Add, AddAssign, Div, DivAssign, Neg, Mul, MulAssign, Sub, SubAssign for
+/// FieldElements. These operations are performed modulo PRIME.
 impl Add for FieldElement {
     type Output = Self;
 
@@ -115,6 +149,22 @@ impl Mul for FieldElement {
     #[inline]
     fn mul(self, other: FieldElement) -> FieldElement {
         Self::new(reduce((self.value as u128) * (other.value as u128)))
+    }
+}
+
+impl Div for FieldElement {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, other: FieldElement) -> FieldElement {
+        self * other.inv()
+    }
+}
+
+impl DivAssign for FieldElement {
+    #[inline]
+    fn div_assign(&mut self, other: FieldElement) {
+        *self = *self / other;
     }
 }
 
@@ -193,7 +243,7 @@ impl From<u8> for FieldElement {
     }
 }
 
-// FUNCTIONS
+// HELPER FUNCTIONS
 // =============================================================================
 
 /// This function reduces a 128-bit number modulo PRIME, based on the instructions at the link below.
@@ -233,4 +283,14 @@ fn reduce(x: u128) -> u64 {
 
     // If an overflow occurred, then we need to subtract PRIME from the result.
     result.wrapping_sub((over as u64) * PRIME)
+}
+
+/// Squares the base N number of times and multiplies the result by the tail value.
+#[inline(always)]
+fn exp_acc<const N: usize>(base: FieldElement, tail: FieldElement) -> FieldElement {
+    let mut result = base;
+    for _ in 0..N {
+        result = result.square();
+    }
+    result * tail
 }

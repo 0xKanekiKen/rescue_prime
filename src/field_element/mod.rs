@@ -12,7 +12,10 @@ mod tests;
 /// Prime number that defines the field the FieldElement is in. It is 2^64 - 2^32 + 1.
 const PRIME: u64 = 0xFFFFFFFF00000001;
 
+#[allow(dead_code)]
 const ZERO: FieldElement = FieldElement { value: 0 };
+
+#[allow(dead_code)]
 const ONE: FieldElement = FieldElement { value: 1 };
 
 // STRUCTS
@@ -29,6 +32,7 @@ struct FieldElement {
 /// IMPLEMENTATIONS
 /// =============================================================================
 
+#[allow(dead_code)]
 impl FieldElement {
     /// Create a new FieldElement. If the value is >= PRIME, then the value is
     /// reduced modulo PRIME.
@@ -87,6 +91,7 @@ impl FieldElement {
     /// This is a very fast way to calculate the inverse of a number and happens in constant time.
     ///
     /// Adapted from: https://github.com/facebook/winterfell/blob/main/math/src/field/f64/mod.rs
+    #[inline]
     pub fn inv(self) -> Self {
         // compute base^(M - 2) using 72 multiplications
         // M - 2 = 0b1111111111111111111111111111111011111111111111111111111111111111
@@ -149,6 +154,7 @@ impl Add for FieldElement {
     type Output = Self;
 
     #[inline]
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, other: FieldElement) -> Self {
         // Add the values and check for overflow. If there is overflow, then
         // subtract PRIME from the result.
@@ -181,6 +187,7 @@ impl Div for FieldElement {
     type Output = Self;
 
     #[inline]
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, other: FieldElement) -> FieldElement {
         self * other.inv()
     }
@@ -223,6 +230,7 @@ impl Sub for FieldElement {
     type Output = Self;
 
     #[inline]
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, other: FieldElement) -> FieldElement {
         // Subtract the values and check for overflow. If there is underflow, then
         // add PRIME to the result.

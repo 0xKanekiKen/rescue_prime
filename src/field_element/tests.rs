@@ -1,4 +1,4 @@
-use super::{FieldElement, ONE, PRIME, ZERO};
+use super::{errors::FieldError, FieldElement, ONE, PRIME, ZERO};
 
 #[test]
 fn test_addition() {
@@ -122,4 +122,41 @@ fn test_double() {
 
     let r: FieldElement = FieldElement::new(PRIME - 1);
     assert_eq!(FieldElement::from(PRIME - 2), r.double());
+}
+
+#[test]
+fn test_to_bytes() {
+    let r: FieldElement = ZERO;
+    let bytes = r.to_bytes();
+    assert_eq!(bytes, [0u8; 8]);
+
+    let r: FieldElement = ONE;
+    let bytes = r.to_bytes();
+    assert_eq!(bytes, [0, 0, 0, 0, 0, 0, 0, 1]);
+
+    let r: FieldElement = FieldElement::new(PRIME - 1);
+    let bytes = r.to_bytes();
+    assert_eq!(bytes, [255, 255, 255, 255, 0, 0, 0, 0]);
+}
+
+#[test]
+fn test_from_bytes() {
+    let bytes = [255, 255, 255, 255, 0, 0, 0, 0];
+    let x = FieldElement::from_bytes(&bytes);
+    match x {
+        Ok(fe) => assert_eq!(fe, FieldElement::new(PRIME - 1)),
+        Err(_) => assert!(false),
+    }
+
+    let bytes = [255, 255, 255, 255, 0, 0, 0, 1];
+    let x = FieldElement::from_bytes(&bytes);
+    match x {
+        Ok(_) => assert!(false),
+        Err(e) => assert_eq!(e, FieldError::InvalidValue),
+    }
+}
+
+#[test]
+fn test_try_from() {
+    test_from_bytes();
 }

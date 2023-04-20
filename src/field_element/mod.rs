@@ -1,6 +1,6 @@
 use std::{
     fmt::{Display, Formatter, Result},
-    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
 #[cfg(test)]
@@ -29,33 +29,121 @@ struct FieldElement {
 /// IMPLEMENTATIONS
 /// =============================================================================
 
+#[allow(dead_code)]
 impl FieldElement {
     /// Create a new FieldElement. If the value is >= PRIME, then the value is
     /// reduced modulo PRIME.
-    pub fn new(value: u64) -> FieldElement {
+    pub const fn new(value: u64) -> FieldElement {
         FieldElement {
             value: value % PRIME,
         }
     }
 
     /// Return the value of the FieldElement.
+    #[inline]
     pub fn value(&self) -> u64 {
         self.value
+    }
+
+    /// Return the summation of the field element with itself.
+    #[inline]
+    pub fn double(&self) -> Self {
+        let (res, carry) = self.value.overflowing_add(self.value);
+        Self::new(res.wrapping_sub(PRIME * (carry as u64)))
+    }
+
+    /// Return the exponentiation of the field element with `pow` field element.
+    #[inline]
+    pub fn exp(self, pow: Self) -> Self {
+        let mut base = self;
+
+        if pow == ZERO {
+            return ONE;
+        } else if base == ZERO {
+            return ZERO;
+        }
+
+        // TODO: come up with an implementation that takes constant time to execute.
+        // This implementation is not constant time.
+        // Checks if the least significant bit is 1. If it is, then the result is
+        // the base. Otherwise, the result is 1.
+        let mut res = if (pow.value & 1) == 1 { base } else { ONE };
+
+        // Shift the bits of the exponent to the right by 1.
+        let mut pow_val = pow.value >> 1;
+
+        // While the exponent is greater than 0, square the base and multiply the
+        // result by the base if the least significant bit of the exponent is 1.
+        // Then, shift the bits of the exponent to the right by 1. This is repeated
+        // until the exponent is 0.
+        //
+        // Mathematically, this is equivalent to:
+        //             $a^b = a^{b_0 + 2b_1 + 4b_2 + ... + 2^{k-1}b_{k-1}}$
+        //             $a^b = a^{b_0} * a^{2b_1} * a^{4b_2} * ... * a^{2^{k-1}b_{k-1}}$
+        // Therefore   $a^b = a^{b_0} * a^{b_1}^2 * a^{b_2}^4 * ... * a^{b_{k-1}}^{2^{k-1}}$
+        while pow_val > 0 {
+            base = base.square();
+            if (pow_val & 1) == 1 {
+                res *= base;
+            }
+            pow_val >>= 1;
+        }
+
+        res
     }
 
     /// Return the inverse of the FieldElement. According to the Fermat Little
     /// Theorem, the inverse of a number is the number raised to the power of
     /// PRIME - 2.
     ///
+    /// NOTE: The inverse of zero is undefined. The caller must ensure that
+    ///       this function is never called with the zero element.
+    ///
     /// Mathematically, this is equivalent to:
     ///             $a^(p-1)     = 1 (mod p)$
     ///             $a^(p-2) * a = 1 (mod p)$
     /// Therefore   $a^(p-2)     = a^{-1} (mod p)$
     ///
-    /// This is a very fast way to calculate the inverse of a number and happens
-    /// to in constant time.
-    pub fn inv(&self) -> Self {
-        unimplemented!("FieldElement::inv")
+    /// This is a very fast way to calculate the inverse of a number and happens in constant time.
+    ///
+    /// Adapted from: https://github.com/facebook/winterfell/blob/d238a1ecc8da42179d0b8a06c0d4a510256aa0a6/math/src/field/f64/mod.rs#L136-L164
+    #[inline]
+    pub fn inv(self) -> Self {
+        debug_assert!(self != ZERO, "The inverse of zero is undefined.");
+
+        // compute base^(M - 2) using 72 multiplications
+        // The exponent M - 2 is represented in binary as:
+        // 0b1111111111111111111111111111111011111111111111111111111111111111
+
+        // compute base^11
+        let t2 = self.cube();
+
+        // compute base^111
+        let t3 = t2.square() * self;
+
+        // compute base^111111 (6 ones)
+        // repeatedly square t3 3 times and multiply by t3
+        let t6 = exp_acc::<3>(t3, t3);
+
+        // compute base^111111111111 (12 ones)
+        // repeatedly square t6 6 times and multiply by t6
+        let t12 = exp_acc::<6>(t6, t6);
+
+        // compute base^111111111111111111111111 (24 ones)
+        // repeatedly square t12 12 times and multiply by t12
+        let t24 = exp_acc::<12>(t12, t12);
+
+        // compute base^1111111111111111111111111111111 (31 ones)
+        // repeatedly square t24 7 times and multiply by t6
+        let t30 = exp_acc::<6>(t24, t6);
+        let t31 = t30.square() * self;
+
+        // compute base^111111111111111111111111111111101111111111111111111111111111111
+        // repeatedly square t31 31 times and multiply by t31
+        let t63 = exp_acc::<32>(t31, t31);
+
+        // compute base^1111111111111111111111111111111011111111111111111111111111111111
+        t63.square() * self
     }
 
     /// Returns the square of the FieldElement which is equivalent to multiplying the FieldElement by itself.
@@ -84,12 +172,13 @@ impl PartialEq for FieldElement {
     }
 }
 
-/// Implement Add, AddAssign, Neg, Mul, MulAssign, Sub, SubAssign for FieldElement.
-/// These operations are performed modulo PRIME.
+/// Implement Add, AddAssign, Div, DivAssign, Neg, Mul, MulAssign, Sub, SubAssign for
+/// FieldElements. These operations are performed modulo PRIME.
 impl Add for FieldElement {
     type Output = Self;
 
     #[inline]
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, other: FieldElement) -> Self {
         // Add the values and check for overflow. If there is overflow, then
         // subtract PRIME from the result.
@@ -115,6 +204,23 @@ impl Mul for FieldElement {
     #[inline]
     fn mul(self, other: FieldElement) -> FieldElement {
         Self::new(reduce((self.value as u128) * (other.value as u128)))
+    }
+}
+
+impl Div for FieldElement {
+    type Output = Self;
+
+    #[inline]
+    #[allow(clippy::suspicious_arithmetic_impl)]
+    fn div(self, other: FieldElement) -> FieldElement {
+        self * other.inv()
+    }
+}
+
+impl DivAssign for FieldElement {
+    #[inline]
+    fn div_assign(&mut self, other: FieldElement) {
+        *self = *self / other;
     }
 }
 
@@ -148,6 +254,7 @@ impl Sub for FieldElement {
     type Output = Self;
 
     #[inline]
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, other: FieldElement) -> FieldElement {
         // Subtract the values and check for overflow. If there is underflow, then
         // add PRIME to the result.
@@ -193,7 +300,7 @@ impl From<u8> for FieldElement {
     }
 }
 
-// FUNCTIONS
+// HELPER FUNCTIONS
 // =============================================================================
 
 /// This function reduces a 128-bit number modulo PRIME, based on the instructions at the link below.
@@ -233,4 +340,14 @@ fn reduce(x: u128) -> u64 {
 
     // If an overflow occurred, then we need to subtract PRIME from the result.
     result.wrapping_sub((over as u64) * PRIME)
+}
+
+/// Squares the base N number of times and multiplies the result by the tail value.
+#[inline(always)]
+fn exp_acc<const N: usize>(base: FieldElement, tail: FieldElement) -> FieldElement {
+    let mut result = base;
+    for _ in 0..N {
+        result = result.square();
+    }
+    result * tail
 }

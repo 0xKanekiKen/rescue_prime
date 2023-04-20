@@ -12,10 +12,7 @@ mod tests;
 /// Prime number that defines the field the FieldElement is in. It is 2^64 - 2^32 + 1.
 const PRIME: u64 = 0xFFFFFFFF00000001;
 
-#[allow(dead_code)]
 const ZERO: FieldElement = FieldElement { value: 0 };
-
-#[allow(dead_code)]
 const ONE: FieldElement = FieldElement { value: 1 };
 
 // STRUCTS
@@ -55,8 +52,8 @@ impl FieldElement {
         Self::new(res.wrapping_sub(PRIME * (carry as u64)))
     }
 
-    #[inline]
     /// Return the exponentiation of the field element with `pow` field element.
+    #[inline]
     pub fn exp(self, pow: Self) -> Self {
         let mut base = self;
 
@@ -66,8 +63,24 @@ impl FieldElement {
             return ZERO;
         }
 
+        // TODO: come up with an implementation that takes constant time to execute.
+        // This implementation is not constant time.
+        // Checks if the least significant bit is 1. If it is, then the result is
+        // the base. Otherwise, the result is 1.
         let mut res = if (pow.value & 1) == 1 { base } else { ONE };
+
+        // Shift the bits of the exponent to the right by 1.
         let mut pow_val = pow.value >> 1;
+
+        // While the exponent is greater than 0, square the base and multiply the
+        // result by the base if the least significant bit of the exponent is 1.
+        // Then, shift the bits of the exponent to the right by 1. This is repeated
+        // until the exponent is 0.
+        //
+        // Mathematically, this is equivalent to:
+        //             $a^b = a^{b_0 + 2b_1 + 4b_2 + ... + 2^{k-1}b_{k-1}}$
+        //             $a^b = a^{b_0} * a^{2b_1} * a^{4b_2} * ... * a^{2^{k-1}b_{k-1}}$
+        // Therefore   $a^b = a^{b_0} * a^{b_1}^2 * a^{b_2}^4 * ... * a^{b_{k-1}}^{2^{k-1}}$
         while pow_val > 0 {
             base = base.square();
             if (pow_val & 1) == 1 {
@@ -83,6 +96,9 @@ impl FieldElement {
     /// Theorem, the inverse of a number is the number raised to the power of
     /// PRIME - 2.
     ///
+    /// NOTE: The inverse of zero is undefined. The caller must ensure that
+    ///       this function is never called with the zero element.
+    ///
     /// Mathematically, this is equivalent to:
     ///             $a^(p-1)     = 1 (mod p)$
     ///             $a^(p-2) * a = 1 (mod p)$
@@ -90,32 +106,40 @@ impl FieldElement {
     ///
     /// This is a very fast way to calculate the inverse of a number and happens in constant time.
     ///
-    /// Adapted from: https://github.com/facebook/winterfell/blob/main/math/src/field/f64/mod.rs
+    /// Adapted from: https://github.com/facebook/winterfell/blob/d238a1ecc8da42179d0b8a06c0d4a510256aa0a6/math/src/field/f64/mod.rs#L136-L164
     #[inline]
     pub fn inv(self) -> Self {
+        debug_assert!(self != ZERO, "The inverse of zero is undefined.");
+
         // compute base^(M - 2) using 72 multiplications
-        // M - 2 = 0b1111111111111111111111111111111011111111111111111111111111111111
+        // The exponent M - 2 is represented in binary as:
+        // 0b1111111111111111111111111111111011111111111111111111111111111111
 
         // compute base^11
-        let t2 = self.square() * (self);
+        let t2 = self.cube();
 
         // compute base^111
         let t3 = t2.square() * self;
 
         // compute base^111111 (6 ones)
+        // repeatedly square t3 3 times and multiply by t3
         let t6 = exp_acc::<3>(t3, t3);
 
         // compute base^111111111111 (12 ones)
+        // repeatedly square t6 6 times and multiply by t6
         let t12 = exp_acc::<6>(t6, t6);
 
         // compute base^111111111111111111111111 (24 ones)
+        // repeatedly square t12 12 times and multiply by t12
         let t24 = exp_acc::<12>(t12, t12);
 
         // compute base^1111111111111111111111111111111 (31 ones)
+        // repeatedly square t24 7 times and multiply by t6
         let t30 = exp_acc::<6>(t24, t6);
         let t31 = t30.square() * self;
 
         // compute base^111111111111111111111111111111101111111111111111111111111111111
+        // repeatedly square t31 31 times and multiply by t31
         let t63 = exp_acc::<32>(t31, t31);
 
         // compute base^1111111111111111111111111111111011111111111111111111111111111111

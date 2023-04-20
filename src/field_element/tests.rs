@@ -78,10 +78,9 @@ fn test_mul() {
 
 #[test]
 fn inv() {
-    // --------- test inverses of identity elements ----------------------------
+    // --------- test inverse of identity elements ----------------------------
 
     assert_eq!(ONE, ONE.inv());
-    assert_eq!(ZERO, ZERO.inv());
 
     // --------- test inverses of field elements -------------------------------
 

@@ -127,30 +127,25 @@ fn test_double() {
 #[test]
 fn test_to_bytes() {
     let r: FieldElement = ZERO;
-    let bytes = r.to_bytes();
-    assert_eq!(bytes, [0u8; 8]);
+    assert_eq!(r.to_bytes(), [0u8; 8]);
 
     let r: FieldElement = ONE;
-    let bytes = r.to_bytes();
-    assert_eq!(bytes, [0, 0, 0, 0, 0, 0, 0, 1]);
+    assert_eq!(r.to_bytes(), [0, 0, 0, 0, 0, 0, 0, 1]);
 
     let r: FieldElement = FieldElement::new(PRIME - 1);
-    let bytes = r.to_bytes();
-    assert_eq!(bytes, [255, 255, 255, 255, 0, 0, 0, 0]);
+    assert_eq!(r.to_bytes(), [255, 255, 255, 255, 0, 0, 0, 0]);
 }
 
 #[test]
 fn test_from_bytes() {
     let bytes = [255, 255, 255, 255, 0, 0, 0, 0];
-    let x = FieldElement::from_bytes(&bytes);
-    match x {
+    match FieldElement::from_bytes(&bytes) {
         Ok(fe) => assert_eq!(fe, FieldElement::new(PRIME - 1)),
         Err(_) => assert!(false),
     }
 
     let bytes = [255, 255, 255, 255, 0, 0, 0, 1];
-    let x = FieldElement::from_bytes(&bytes);
-    match x {
+    match FieldElement::from_bytes(&bytes) {
         Ok(_) => assert!(false),
         Err(e) => assert_eq!(e, FieldError::InvalidValue),
     }

@@ -159,30 +159,14 @@ impl FieldElement {
         self.square().mul(*self)
     }
 
-    /// Serialize the FieldElement into a byte array of size 8.
+    /// Serialize the FieldElement into a little-endian byte array of size 8.
     pub fn to_bytes(self) -> [u8; 8] {
-        [
-            (self.value >> 56) as u8,
-            (self.value >> 48) as u8,
-            (self.value >> 40) as u8,
-            (self.value >> 32) as u8,
-            (self.value >> 24) as u8,
-            (self.value >> 16) as u8,
-            (self.value >> 8) as u8,
-            self.value as u8,
-        ]
+        self.value.to_le_bytes()
     }
 
-    /// Deserialize the FieldElement from a byte array of size 8.
+    /// Deserialize the FieldElement from a little-endian byte array of size 8.
     pub fn from_bytes(arr: &[u8; 8]) -> Result<Self, errors::FieldError> {
-        let value = ((arr[0] as u64) << 56)
-            | ((arr[1] as u64) << 48)
-            | ((arr[2] as u64) << 40)
-            | ((arr[3] as u64) << 32)
-            | ((arr[4] as u64) << 24)
-            | ((arr[5] as u64) << 16)
-            | ((arr[6] as u64) << 8)
-            | (arr[7] as u64);
+        let value = u64::from_le_bytes(*arr);
         if value >= PRIME {
             Err(errors::FieldError::InvalidValue)
         } else {

@@ -1,10 +1,13 @@
+use core::convert::TryFrom;
 use std::{
-    fmt::{Display, Formatter, Result},
+    fmt::{Display, Formatter, Result as FmtResult},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
 #[cfg(test)]
 mod tests;
+
+use crate::utils::errors::FieldError;
 
 // CONSTANTS
 // =============================================================================
@@ -155,11 +158,26 @@ impl FieldElement {
     pub fn cube(&self) -> Self {
         self.square().mul(*self)
     }
+
+    /// Serialize the FieldElement into a little-endian byte array of size 8.
+    pub fn to_bytes(self) -> [u8; 8] {
+        self.value.to_le_bytes()
+    }
+
+    /// Deserialize the FieldElement from a little-endian byte array of size 8.
+    pub fn from_bytes(arr: &[u8; 8]) -> Result<Self, FieldError> {
+        let value = u64::from_le_bytes(*arr);
+        if value >= PRIME {
+            Err(FieldError::DeserializationError)
+        } else {
+            Ok(Self::new(value))
+        }
+    }
 }
 
 /// Implement the Display trait for FieldElement.
 impl Display for FieldElement {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.value())
     }
 }
@@ -297,6 +315,18 @@ impl From<u16> for FieldElement {
 impl From<u8> for FieldElement {
     fn from(x: u8) -> Self {
         Self::new(x as u64)
+    }
+}
+
+// From<[u8;8]> is not implemented since it will have to be very
+// opinionated about the endianness of the bytes and perform
+// modulo PRIME silently.
+
+impl TryFrom<[u8; 8]> for FieldElement {
+    type Error = FieldError;
+
+    fn try_from(bytes: [u8; 8]) -> Result<Self, Self::Error> {
+        Self::from_bytes(&bytes)
     }
 }
 

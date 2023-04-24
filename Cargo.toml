@@ -5,6 +5,9 @@ edition = "2021"
 authors = ["Kaneki Ken <starkkaneki@protonmail.com>"]
 license = "MIT"
 
+[dependencies]
+sha3 = "0.10.7"
+
 [profile.optimized]
 inherits = "release"
 codegen-units = 1

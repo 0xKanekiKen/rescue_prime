@@ -10,10 +10,10 @@ mod tests;
 // =============================================================================
 
 /// Prime number that defines the field the FieldElement is in. It is 2^64 - 2^32 + 1.
-const PRIME: u64 = 0xFFFFFFFF00000001;
+pub const PRIME: u64 = 0xFFFFFFFF00000001;
 
-const ZERO: FieldElement = FieldElement { value: 0 };
-const ONE: FieldElement = FieldElement { value: 1 };
+pub const ZERO: FieldElement = FieldElement { value: 0 };
+pub const ONE: FieldElement = FieldElement { value: 1 };
 
 // STRUCTS
 // =============================================================================
@@ -22,7 +22,7 @@ const ONE: FieldElement = FieldElement { value: 1 };
 /// as a u64, but it is not valid to create a FieldElement with a value >=
 /// PRIME.
 #[derive(Clone, Copy, Debug)]
-struct FieldElement {
+pub struct FieldElement {
     value: u64,
 }
 
@@ -306,7 +306,7 @@ impl From<u8> for FieldElement {
 /// This function reduces a 128-bit number modulo PRIME, based on the instructions at the link below.
 /// https://cp4space.hatsya.com/2021/09/01/an-efficient-prime-for-number-theoretic-transforms/
 #[inline]
-fn reduce(x: u128) -> u64 {
+pub fn reduce(x: u128) -> u64 {
     // Split the 128-bit number into 3 parts, such that the number can be written as follows.
     // x = low + 2^64 * middle + 2^96 * high
     let low: u64 = x as u64; // low 64 bits

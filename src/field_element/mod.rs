@@ -7,7 +7,7 @@ use std::{
 #[cfg(test)]
 mod tests;
 
-mod errors;
+use crate::utils::errors::FieldError;
 
 // CONSTANTS
 // =============================================================================
@@ -165,10 +165,10 @@ impl FieldElement {
     }
 
     /// Deserialize the FieldElement from a little-endian byte array of size 8.
-    pub fn from_bytes(arr: &[u8; 8]) -> Result<Self, errors::FieldError> {
+    pub fn from_bytes(arr: &[u8; 8]) -> Result<Self, FieldError> {
         let value = u64::from_le_bytes(*arr);
         if value >= PRIME {
-            Err(errors::FieldError::InvalidValue)
+            Err(FieldError::DeserializationError)
         } else {
             Ok(Self::new(value))
         }
@@ -323,7 +323,7 @@ impl From<u8> for FieldElement {
 // modulo PRIME silently.
 
 impl TryFrom<[u8; 8]> for FieldElement {
-    type Error = errors::FieldError;
+    type Error = FieldError;
 
     fn try_from(bytes: [u8; 8]) -> Result<Self, Self::Error> {
         Self::from_bytes(&bytes)

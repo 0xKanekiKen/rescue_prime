@@ -1,4 +1,5 @@
-use super::{errors::FieldError, FieldElement, ONE, PRIME, ZERO};
+use super::{FieldElement, ONE, PRIME, ZERO};
+use crate::utils::errors::FieldError;
 
 #[test]
 fn test_addition() {
@@ -130,24 +131,24 @@ fn test_to_bytes() {
     assert_eq!(r.to_bytes(), [0u8; 8]);
 
     let r: FieldElement = ONE;
-    assert_eq!(r.to_bytes(), [0, 0, 0, 0, 0, 0, 0, 1]);
+    assert_eq!(r.to_bytes(), [1, 0, 0, 0, 0, 0, 0, 0]);
 
     let r: FieldElement = FieldElement::new(PRIME - 1);
-    assert_eq!(r.to_bytes(), [255, 255, 255, 255, 0, 0, 0, 0]);
+    assert_eq!(r.to_bytes(), [0, 0, 0, 0, 255, 255, 255, 255]);
 }
 
 #[test]
 fn test_from_bytes() {
-    let bytes = [255, 255, 255, 255, 0, 0, 0, 0];
+    let bytes = [0, 0, 0, 0, 255, 255, 255, 255];
     match FieldElement::from_bytes(&bytes) {
         Ok(fe) => assert_eq!(fe, FieldElement::new(PRIME - 1)),
         Err(_) => assert!(false),
     }
 
-    let bytes = [255, 255, 255, 255, 0, 0, 0, 1];
+    let bytes = [1, 0, 0, 0, 255, 255, 255, 255];
     match FieldElement::from_bytes(&bytes) {
         Ok(_) => assert!(false),
-        Err(e) => assert_eq!(e, FieldError::InvalidValue),
+        Err(e) => assert_eq!(e, FieldError::DeserializationError),
     }
 }
 
